@@ -52,16 +52,44 @@ Application options.
 const app = new RestApplication({
   rest: {
     port: 3001,
+
+    // Optional configuration for how to serve OpenAPI spec
+    openApiSpec: {
+      // Configure servers for OpenAPI spec
+      servers: [{url: 'http://127.0.0.1:8080'}],
+
+      // Set `servers` based on HTTP request headers, default to `false`
+      setServersFromRequest: false,
+      // Optional mapping for endpoints serving specs
+      endpointMapping: {
+        '/openapi.json': {version: '3.0.0', format: 'json'},
+        '/openapi.yaml': {version: '3.0.0', format: 'yaml'},
+      },
+    },
+
+    // Optional configuration for API explorer
+    apiExplorer: {
+      // URL for the hosted API Explorer UI
+      // default to https://loopback.io/api-explorer
+      url: 'https://petstore.swagger.io',
+      // URL for the API explorer served over plain http to deal with mixed
+      // content security imposed by browsers as the spec is exposed over `http`
+      // by default. See https://github.com/strongloop/loopback-next/issues/1603
+      // default to `url`
+      urlForHttp: 'http://petstore.swagger.io',
+    },
   },
 });
 ```
 
 ### `rest` options
 
-| Property | Type            | Purpose                                                                                                   |
-| -------- | --------------- | --------------------------------------------------------------------------------------------------------- |
-| port     | number          | Specify the port on which the RestServer will listen for traffic.                                         |
-| sequence | SequenceHandler | Use a custom SequenceHandler to change the behavior of the RestServer for the request-response lifecycle. |
+| Property    | Type               | Purpose                                                                                                   |
+| ----------- | ------------------ | --------------------------------------------------------------------------------------------------------- |
+| port        | number             | Specify the port on which the RestServer will listen for traffic.                                         |
+| sequence    | SequenceHandler    | Use a custom SequenceHandler to change the behavior of the RestServer for the request-response lifecycle. |
+| openApiSpec | OpenApiSpecOptions | Customize how OpenAPI spec is served                                                                      |
+| apiExplorer | ApiExplorerOptions | Customize how API explorer is served                                                                      |
 
 ## Contributions
 

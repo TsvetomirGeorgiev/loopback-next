@@ -223,7 +223,11 @@ describe('RestServer (integration)', () => {
   });
 
   it('exposes "GET /openapi.json" endpoint', async () => {
-    const server = await givenAServer({rest: {port: 0}});
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+      },
+    });
     const greetSpec = {
       responses: {
         200: {
@@ -239,8 +243,11 @@ describe('RestServer (integration)', () => {
     );
     expect(response.body).to.containDeep({
       openapi: '3.0.0',
+      info: {
+        title: 'LoopBack Application',
+        version: '1.0.0',
+      },
       servers: [{url: '/'}],
-      info: {title: 'LoopBack Application', version: '1.0.0'},
       paths: {
         '/greet': {
           get: {
@@ -260,6 +267,119 @@ describe('RestServer (integration)', () => {
     });
     expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
     expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
+  });
+
+  it('exposes "GET /openapi.json" with openApiSpec.servers', async () => {
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        openApiSpec: {
+          servers: [{url: 'http://127.0.0.1:8080'}],
+        },
+      },
+    });
+    const greetSpec = {
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+          description: 'greeting of the day',
+        },
+      },
+    };
+    server.route(new Route('get', '/greet', greetSpec, function greet() {}));
+
+    const response = await createClientForHandler(server.requestHandler).get(
+      '/openapi.json',
+    );
+    expect(response.body).to.containDeep({
+      openapi: '3.0.0',
+      info: {
+        title: 'LoopBack Application',
+        version: '1.0.0',
+      },
+      servers: [{url: 'http://127.0.0.1:8080'}],
+      paths: {
+        '/greet': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'text/plain': {
+                    schema: {type: 'string'},
+                  },
+                },
+                description: 'greeting of the day',
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it('exposes "GET /openapi.json" with openApiSpec.setServersFromRequest', async () => {
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        openApiSpec: {
+          setServersFromRequest: true,
+        },
+      },
+    });
+    const greetSpec = {
+      responses: {
+        200: {
+          content: {'text/plain': {schema: {type: 'string'}}},
+          description: 'greeting of the day',
+        },
+      },
+    };
+    server.route(new Route('get', '/greet', greetSpec, function greet() {}));
+
+    const response = await createClientForHandler(server.requestHandler).get(
+      '/openapi.json',
+    );
+    expect(response.body).to.containDeep({
+      openapi: '3.0.0',
+      info: {
+        title: 'LoopBack Application',
+        version: '1.0.0',
+      },
+      paths: {
+        '/greet': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'text/plain': {
+                    schema: {type: 'string'},
+                  },
+                },
+                description: 'greeting of the day',
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(response.body.servers[0].url).to.match(/http:\/\/127.0.0.1\:\d+/);
+  });
+
+  it('exposes endpoints with openApiSpec.endpointMapping', async () => {
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        openApiSpec: {
+          endpointMapping: {
+            '/openapi': {version: '3.0.0', format: 'yaml'},
+          },
+        },
+      },
+    });
+
+    const test = createClientForHandler(server.requestHandler);
+    await test.get('/openapi').expect(200, /openapi\: 3\.0\.0/);
+    await test.get('/openapi.json').expect(404);
   });
 
   it('exposes "GET /openapi.yaml" endpoint', async () => {
@@ -292,11 +412,12 @@ paths:
             'text/plain':
               schema:
                 type: string
-servers:
-  - url: /
     `);
     // Use json for comparison to tolerate textual diffs
-    expect(yaml.safeLoad(response.text)).to.eql(expected);
+    const json = yaml.safeLoad(response.text);
+    expect(json).to.containDeep(expected);
+    expect(json.servers[0].url).to.match('/');
+
     expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
     expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
   });
@@ -359,12 +480,46 @@ servers:
     expect(response.get('Location')).match(expectedUrl);
   });
 
-  it('exposes "GET /swagger-ui" endpoint with apiExplorerUrl', async () => {
-    const app = new Application({
-      rest: {apiExplorerUrl: 'http://petstore.swagger.io'},
+  it('exposes "GET /swagger-ui" endpoint with apiExplorer.url', async () => {
+    const server = await givenAServer({
+      rest: {
+        apiExplorer: {
+          url: 'https://petstore.swagger.io',
+        },
+      },
     });
-    app.component(RestComponent);
-    const server = await app.getServer(RestServer);
+    const greetSpec = {
+      responses: {
+        200: {
+          schema: {type: 'string'},
+          description: 'greeting of the day',
+        },
+      },
+    };
+    server.route(new Route('get', '/greet', greetSpec, function greet() {}));
+
+    const response = await createClientForHandler(server.requestHandler).get(
+      '/swagger-ui',
+    );
+    await server.get(RestBindings.PORT);
+    const expectedUrl = new RegExp(
+      [
+        'https://petstore.swagger.io',
+        '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
+      ].join(''),
+    );
+    expect(response.get('Location')).match(expectedUrl);
+  });
+
+  it('exposes "GET /swagger-ui" endpoint with apiExplorer.urlForHttp', async () => {
+    const server = await givenAServer({
+      rest: {
+        apiExplorer: {
+          url: 'https://petstore.swagger.io',
+          urlForHttp: 'http://petstore.swagger.io',
+        },
+      },
+    });
     const greetSpec = {
       responses: {
         200: {
@@ -386,8 +541,6 @@ servers:
       ].join(''),
     );
     expect(response.get('Location')).match(expectedUrl);
-    expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
-    expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
   });
 
   it('supports HTTPS protocol with key and certificate files', async () => {
