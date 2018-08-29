@@ -11,13 +11,14 @@ import {
   PathObject,
   ComponentsObject,
   RequestBodyObject,
+  ResponsesObject,
 } from '@loopback/openapi-v3-types';
 import {getJsonSchema} from '@loopback/repository-json-schema';
 import {OAI3Keys} from './keys';
 import {jsonToSchemaObject} from './json-to-schema';
 import * as _ from 'lodash';
 
-const debug = require('debug')('loopback:openapi3:metadata');
+const debug = require('debug')('loopback:openapi3:metadata:controller-spec');
 
 // tslint:disable:no-any
 
@@ -102,6 +103,47 @@ function resolveControllerSpec(constructor: Function): ControllerSpec {
       endpoint.spec = operationSpec;
     }
     debug('  operation for method %s: %j', op, endpoint);
+
+    debug('  processing responses for method %s', op);
+    let responses = MetadataInspector.getMethodMetadata<ResponsesObject>(
+      OAI3Keys.RESPONSES_KEY,
+      constructor.prototype,
+      op,
+    );
+
+    debug('  decorated responses for method %s: %o', op, responses);
+
+    const defaultResponse = {
+      '200': {description: ''},
+    };
+
+    operationSpec.responses =
+      responses || operationSpec.responses || defaultResponse;
+
+    for (const code in operationSpec.responses) {
+      for (const c in operationSpec.responses[code].content) {
+        debug('  evaluating response code %s with content %o', code, c);
+        if (
+          typeof operationSpec.responses[code].content[c].schema === 'function'
+        ) {
+          debug('  responses schema detected as a model / function');
+          operationSpec.responses[code].content[c].schema = getModelRef(
+            operationSpec.responses[code].content[c].schema,
+          );
+        } else if (
+          operationSpec.responses[code].content[c].schema.type === 'array' &&
+          typeof operationSpec.responses[code].content[c].schema.items ===
+            'function'
+        ) {
+          debug(
+            'responses schema of type array detected with items as a model / function',
+          );
+          operationSpec.responses[code].content[c].schema.items = getModelRef(
+            operationSpec.responses[code].content[c].schema.items,
+          );
+        }
+      }
+    }
 
     debug('  processing parameters for method %s', op);
     let params = MetadataInspector.getAllParameterMetadata<ParameterObject>(
@@ -242,4 +284,8 @@ export function getControllerSpec(constructor: Function): ControllerSpec {
     );
   }
   return spec;
+}
+
+function getModelRef(fn: Function) {
+  return {$ref: `#/components/schemas/${fn.name}`};
 }

@@ -3,7 +3,7 @@ import {RestEndpoint, ControllerSpec} from '.';
 import {
   ParameterObject,
   RequestBodyObject,
-  ResponseObject,
+  ResponsesObject,
 } from '@loopback/openapi-v3-types';
 
 // Copyright IBM Corp. 2018. All Rights Reserved.
@@ -53,10 +53,10 @@ export namespace OAI3Keys {
   >('openapi-v3:request-body');
 
   /**
-   * Metadata key used to set or retrieve `@requestBody` metadata
+   * Metadata key used to set or retrieve `@responses` metadata
    */
-  export const RESPONSE_KEY = MetadataAccessor.create<
-    ResponseObject,
+  export const RESPONSES_KEY = MetadataAccessor.create<
+    ResponsesObject,
     MethodDecorator
-  >('openapi-v3:response');
+  >('openapi-v3:responses');
 }

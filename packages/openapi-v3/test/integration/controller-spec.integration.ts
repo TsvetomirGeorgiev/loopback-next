@@ -6,7 +6,7 @@
 import {expect} from '@loopback/testlab';
 import {model, property} from '@loopback/repository';
 import {ParameterObject} from '@loopback/openapi-v3-types';
-import {param, requestBody, getControllerSpec, post} from '../../';
+import {param, requestBody, getControllerSpec, post, get} from '../../';
 
 describe('controller spec', () => {
   it('adds property schemas in components.schemas', () => {
@@ -41,7 +41,7 @@ describe('controller spec', () => {
       paths: {
         '/foo': {
           post: {
-            responses: {},
+            responses: {'200': {description: ''}},
             requestBody: {
               description: 'a foo instance',
               required: true,
@@ -147,5 +147,22 @@ describe('controller spec', () => {
 
     expect(schemas).to.have.key('MyParam');
     expect(schemas!.MyParam).to.deepEqual({});
+  });
+
+  it('generates a default responses object if not set', () => {
+    class MyController {
+      @get('/')
+      hello() {
+        return 'hello world';
+      }
+    }
+
+    const spec = getControllerSpec(MyController);
+    expect(spec.paths['/'].get).to.have.property('responses');
+    expect(spec.paths['/'].get.responses).to.eql({
+      '200': {
+        description: '',
+      },
+    });
   });
 });
