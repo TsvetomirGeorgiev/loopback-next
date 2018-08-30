@@ -110,7 +110,7 @@ describe('Application', () => {
         .expect(200);
       await expect(
         todoListRepo.findById(persistedTodoList.id),
-      ).to.be.rejectedWith(/no TodoList found with id/);
+      ).to.be.rejectedWith(/Model not found: TodoList with id/);
     });
   });
 

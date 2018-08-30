@@ -45,7 +45,7 @@ describe('DefaultCrudRepository', () => {
 
   class Note extends Entity {
     static definition = new ModelDefinition({
-      name: 'note3',
+      name: 'Note3',
       properties: {
         title: 'string',
         content: 'string',
@@ -281,12 +281,9 @@ describe('DefaultCrudRepository', () => {
 
   it('throws if findById does not return a value', async () => {
     const repo = new DefaultCrudRepository(Note, ds);
-    try {
-      await repo.findById(999999);
-    } catch (err) {
-      expect(err).to.match(/no Note was found with id/);
-      return;
-    }
-    throw new Error('No error was returned!');
+    return expect(repo.findById(999999)).to.be.rejectedWith({
+      message: 'Model not found: Note3 with id 999999',
+      code: 'MODEL_NOT_FOUND',
+    });
   });
 });

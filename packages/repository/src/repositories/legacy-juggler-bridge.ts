@@ -211,7 +211,12 @@ export class DefaultCrudRepository<T extends Entity, ID>
       this.modelClass.findById(id, filter, options),
     );
     if (!model) {
-      throw new Error(`no ${this.modelClass.name} found with id "${id}"`);
+      const quotedId = JSON.stringify(id);
+      const err: Error & {code?: string} = new Error(
+        `Model not found: ${this.modelClass.name} with id ${quotedId}`,
+      );
+      err.code = 'MODEL_NOT_FOUND';
+      throw err;
     }
     return this.toEntity(model);
   }
