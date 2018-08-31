@@ -25,6 +25,7 @@
   "dependencies": {
     "@loopback/context": "^0.12.5",
     "@loopback/core": "^0.11.5",
+    "@loopback/explorer": "^0.1.0",
     "@loopback/http-server": "^0.3.5",
     "@loopback/openapi-v3": "^0.12.6",
     "@loopback/openapi-v3-types": "^0.8.5",

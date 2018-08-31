@@ -42,6 +42,7 @@ import * as express from 'express';
 import {ServeStaticOptions} from 'serve-static';
 import {PathParams} from 'express-serve-static-core';
 import * as pathToRegExp from 'path-to-regexp';
+import {apiExplorerUI} from '@loopback/explorer';
 
 const debug = require('debug')('loopback:rest:server');
 
@@ -202,10 +203,31 @@ export class RestServer extends Context implements Server, HttpServerLike {
       maxAge: 86400,
       credentials: true,
     };
+    // Set up CORS
     this._expressApp.use(cors(corsOptions));
 
     // Place the assets router here before controllers
     this._setupRouterForStaticAssets();
+
+    const mapping = this.config.openApiSpec!.endpointMapping!;
+    // Serving OpenAPI spec
+    for (const p in mapping) {
+      this._expressApp.use(p, (req, res) =>
+        this._serveOpenApiSpec(req, res, mapping[p]),
+      );
+    }
+
+    // Serving API Explorer UI
+    if (this.config.apiExplorer!.localPath) {
+      this._expressApp.use(
+        this.config.apiExplorer!.localPath!,
+        apiExplorerUI(),
+      );
+    }
+
+    this._expressApp.get(['/swagger-ui', 'api-explorer'], (req, res) =>
+      this._redirectToSwaggerUI(req, res),
+    );
 
     // Mount our router & request handler
     this._expressApp.use((req, res, next) => {
@@ -232,25 +254,6 @@ export class RestServer extends Context implements Server, HttpServerLike {
   }
 
   protected _handleHttpRequest(request: Request, response: Response) {
-    const mapping = this.config.openApiSpec!.endpointMapping!;
-    if (request.method === 'GET' && request.url && request.url in mapping) {
-      // NOTE(bajtos) Regular routes are handled through Sequence.
-      // IMO, this built-in endpoint should not run through a Sequence,
-      // because it's not part of the application API itself.
-      // E.g. if the app implements access/audit logs, I don't want
-      // this endpoint to trigger a log entry. If the server implements
-      // content-negotiation to support XML clients, I don't want the OpenAPI
-      // spec to be converted into an XML response.
-      const form = mapping[request.url];
-      return this._serveOpenApiSpec(request, response, form);
-    }
-    if (
-      request.method === 'GET' &&
-      request.url &&
-      request.url === '/swagger-ui'
-    ) {
-      return this._redirectToSwaggerUI(request, response);
-    }
     return this.httpHandler.handleRequest(request, response);
   }
 
@@ -396,7 +399,7 @@ export class RestServer extends Context implements Server, HttpServerLike {
     // 127.0.0.1
     let host =
       (request.get('x-forwarded-host') || '').split(',')[0] ||
-      request.headers.host!.replace(/:[0-9]+$/, '');
+      request.headers.host!.replace(/:([0-9]+)$/, '');
     let port =
       (request.get('x-forwarded-port') || '').split(',')[0] ||
       this.config.port ||
@@ -758,16 +761,23 @@ export interface OpenApiSpecOptions {
 
 export interface ApiExplorerOptions {
   /**
-   * The url for hosted API explorer UI
+   * The url for API explorer UI
    * default to https://loopback.io/api-explorer
    */
   url?: string;
   /**
-   * URL for the API explorer served over plain http to deal with mixed content
-   * security imposed by browsers as the spec is exposed over `http` by default.
+   * URL for the externally hosted API explorer UI API explorer served over
+   * plain http to deal with mixed content security imposed by browsers as the
+   * spec is exposed over `http` by default.
    * https://github.com/strongloop/loopback-next/issues/1603
    */
   urlForHttp?: string;
+
+  /**
+   * Set local path to serve API explorer UI, such as `/api-explorer`. To
+   * disable the endpoint, set its value to an empty string `''`.
+   */
+  localPath?: string;
 }
 
 export interface RestServerOptions {

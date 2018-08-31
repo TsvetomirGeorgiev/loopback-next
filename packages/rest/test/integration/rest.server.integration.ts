@@ -543,6 +543,21 @@ paths:
     expect(response.get('Location')).match(expectedUrl);
   });
 
+  it('exposes "GET /api-explorer" with apiExplorer.localPath', async () => {
+    const server = await givenAServer({
+      rest: {
+        apiExplorer: {
+          localPath: '/api-explorer',
+        },
+      },
+    });
+
+    await createClientForHandler(server.requestHandler)
+      .get('/api-explorer')
+      .expect(200, /\<title\>LoopBack API Explorer<\/title\>/)
+      .expect('content-type', /text\/html.*/);
+  });
+
   it('supports HTTPS protocol with key and certificate files', async () => {
     const keyPath = path.join(__dirname, 'key.pem');
     const certPath = path.join(__dirname, 'cert.pem');
